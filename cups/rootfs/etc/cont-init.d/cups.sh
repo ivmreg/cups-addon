@@ -57,13 +57,16 @@ EOL
 ln -sf /data/cups/config/cupsd.conf /etc/cups/cupsd.conf
 #ln -sf /data/cups/config/printers.conf /etc/cups/printers.conf || true
 
+
 # Force encryption policy via cupsctl (modern syntax)
 cupsctl DefaultEncryption=Never
+
+# Start cupsd in foreground for s6 supervision
+exec /usr/sbin/cupsd -f
+
+sleep 2
 
 # Start DBus (for Avahi) and Avahi daemon
 mkdir -p /run/dbus
 dbus-daemon --system --nopidfile
 avahi-daemon -D
-
-# Start cupsd in foreground for s6 supervision
-exec /usr/sbin/cupsd -f
