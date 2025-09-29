@@ -67,8 +67,8 @@ avahi-daemon -D
 # Give daemons a moment to settle
 sleep 2
 
-# Enforce encryption policy (modern syntax)
-cupsctl DefaultEncryption=Never || true
+# # Enforce encryption policy (modern syntax)
+# cupsctl DefaultEncryption=Never || true
 
 # Finally, start cupsd in foreground for s6 supervision
 exec /usr/sbin/cupsd -f
