@@ -24,6 +24,7 @@ JobSheets none,none
 PreserveJobHistory No
 
 BrowseLocalProtocols dnssd
+DefaultShared Yes
 
 <Location />
   Order allow,deny
