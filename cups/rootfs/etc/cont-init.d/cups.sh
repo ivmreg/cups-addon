@@ -17,12 +17,12 @@ ServerAlias *
 WebInterface Yes
 
 DefaultAuthType None
+DefaultEncryption Never
 JobSheets none,none
 PreserveJobHistory No
 
 BrowseLocalProtocols dnssd
 DefaultShared Yes
-DefaultEncryption Never
 
 <Location />
   Order allow,deny
@@ -66,8 +66,8 @@ avahi-daemon -D
 /usr/sbin/cupsd
 sleep 2
 
-# Force-disable SSL/TLS advertising in DNS-SD
-cupsctl --no-ssl
+# Force encryption policy via cupsctl (modern syntax)
+cupsctl DefaultEncryption=Never
 
 # Replace background cupsd with foreground one for s6 supervision
 exec /usr/sbin/cupsd -f
