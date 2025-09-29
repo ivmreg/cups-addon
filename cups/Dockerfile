@@ -15,15 +15,24 @@ RUN \
     echo "http://dl-cdn.alpinelinux.org/alpine/v$(cat /etc/alpine-release | cut -d'.' -f1,2)/community" >> /etc/apk/repositories && \
     apk update && \
     apk add --no-cache \
-        cups \
-        cups-filters \
-        ghostscript \
-        libjpeg-turbo \
-        net-snmp \
-        avahi \
-        avahi-compat-libdns_sd \
-        avahi-tools \
-        dbus
+      build-base \
+      cmake \
+      git \
+      cups \
+      cups-filters \
+      ghostscript \
+      libjpeg-turbo \
+      net-snmp \
+      avahi \
+      avahi-compat-libdns_sd \
+      avahi-tools \
+      dbus
+
+# Build and install brlaser
+RUN git clone https://github.com/pdewacht/brlaser.git /tmp/brlaser && \
+    cd /tmp/brlaser && \
+    cmake . && make && make install && \
+    rm -rf /tmp/brlaser
 
 # Copy rootfs (scripts and configs)
 COPY rootfs /

@@ -59,19 +59,19 @@ BrowseLocalProtocols dnssd
 </Limit>
 EOL
 
-# Define your Brother raw queue if not present
-if [ ! -f /data/cups/config/printers.conf ]; then
-  cat > /data/cups/config/printers.conf << 'EOL'
-<Printer BrotherHL1110>
-  Info Brother HL-1110 (Raw)
-  Location Network
-  DeviceURI socket://192.168.52.167:9100
-  State Idle
-  Accepting Yes
-  Shared Yes
-</Printer>
-EOL
-fi
+# # Define your Brother raw queue if not present
+# if [ ! -f /data/cups/config/printers.conf ]; then
+#   cat > /data/cups/config/printers.conf << 'EOL'
+# <Printer BrotherHL1110>
+#   Info Brother HL-1110 (Raw)
+#   Location Network
+#   DeviceURI socket://192.168.52.167:9100
+#   State Idle
+#   Accepting Yes
+#   Shared Yes
+# </Printer>
+# EOL
+# fi
 
 # Avahi AirPrint bridge service (minimal; CUPS dnssd will publish actual queues)
 cat > /etc/avahi/services/airprint.service << 'EOL'
@@ -89,6 +89,16 @@ EOL
 # Link configs into system paths
 ln -sf /data/cups/config/cupsd.conf /etc/cups/cupsd.conf
 ln -sf /data/cups/config/printers.conf /etc/cups/printers.conf
+
+# Register Brother HL-1110 with brlaser driver
+lpadmin -p BrotherHL1110 \
+  -E \
+  -v socket://192.168.52.167:9100 \
+  -m br1110.ppd
+
+# Enable and accept jobs
+cupsenable BrotherHL1110
+cupsaccept BrotherHL1110
 
 # Start DBus (for Avahi) and Avahi daemon, then CUPS
 mkdir -p /run/dbus
