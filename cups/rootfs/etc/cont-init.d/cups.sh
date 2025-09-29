@@ -23,6 +23,7 @@ Listen 0.0.0.0:631
   Order allow,deny
   Allow localhost
   Allow 10.0.0.0/8
+  Allow 172.16.0.0/12
   Allow 192.168.1.0/16
 </Location>
 
@@ -31,6 +32,7 @@ Listen 0.0.0.0:631
   Order allow,deny
   Allow localhost
   Allow 10.0.0.0/8
+  Allow 172.16.0.0/12
   Allow 192.168.1.0/16
 </Location>
 
@@ -39,6 +41,7 @@ Listen 0.0.0.0:631
   Order allow,deny
   Allow localhost
   Allow 10.0.0.0/8
+  Allow 172.16.0.0/12
   Allow 192.168.1.0/16
 </Location>
 
@@ -46,6 +49,7 @@ Listen 0.0.0.0:631
   Order allow,deny
   Allow localhost
   Allow 10.0.0.0/8
+  Allow 172.16.0.0/12
   Allow 192.168.1.0/16
 </Limit>
 
