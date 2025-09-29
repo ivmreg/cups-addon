@@ -57,7 +57,11 @@ EOL
 
 # Create a symlink from the default config location to our persistent location
 ln -sf /data/cups/config/cupsd.conf /etc/cups/cupsd.conf
+rm -f /etc/cups/printers.conf
 ln -sf /data/cups/config/printers.conf /etc/cups/printers.conf
+touch /data/cups/config/printers.conf
+chown root:lp /data/cups/config/printers.conf
+chmod 664 /data/cups/config/printers.conf
 
 # Start DBus (for Avahi) and Avahi daemon first
 dbus-daemon --system --nopidfile
