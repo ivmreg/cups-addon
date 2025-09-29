@@ -55,30 +55,33 @@ DefaultShared Yes
 </Limit>
 EOL
 
-# Remove ephemeral files
-rm -f /etc/cups/cupsd.conf
-rm -f /etc/cups/printers.conf
-
-# Ensure persistent files exist
-mkdir -p /data/cups/config
-touch /data/cups/config/cupsd.conf
-touch /data/cups/config/printers.conf
-chown root:lp /data/cups/config/*.conf
-chmod 600 /data/cups/config/*.conf
-
-# Create symlinks
+# Remove ephemeral files and link persistent configs
+rm -f /etc/cups/cupsd.conf /etc/cups/printers.conf
 ln -sf /data/cups/config/cupsd.conf /etc/cups/cupsd.conf
 ln -sf /data/cups/config/printers.conf /etc/cups/printers.conf
 
-# Start DBus (for Avahi) and Avahi daemon first
+# Start DBus + Avahi
 dbus-daemon --system --nopidfile
 avahi-daemon -D
-
-# Give daemons a moment to settle
 sleep 2
 
-# # Enforce encryption policy (modern syntax)
-# cupsctl DefaultEncryption=Never || true
+# Start cupsd in background so lpadmin can talk to it
+/usr/sbin/cupsd -f &
+CUPSD_PID=$!
 
-# Finally, start cupsd in foreground for s6 supervision
-exec /usr/sbin/cupsd -f
+# Wait for socket
+for i in {1..5}; do
+  if lpstat -r >/dev/null 2>&1; then break; fi
+  sleep 1
+done
+
+# Ensure HL1110 queue exists
+lpadmin -p HL1110 \
+        -E \
+        -v socket://192.168.52.167:9100 \
+        -m drv:///brlaser.drv/br1110.ppd
+cupsenable HL1110
+cupsaccept HL1110
+
+# Wait on cupsd for s6 supervision
+wait $CUPSD_PID
