@@ -70,7 +70,7 @@ sleep 2
 CUPSD_PID=$!
 
 # Wait for socket
-for i in {1..5}; do
+for i in {1..10}; do
   if lpstat -r >/dev/null 2>&1; then break; fi
   sleep 1
 done
