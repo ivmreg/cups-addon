@@ -1,20 +1,17 @@
 <?xml version="1.0" standalone='no'?>
 <!DOCTYPE service-group SYSTEM "avahi-service.dtd">
 <service-group>
-  <name replace-wildcards="yes">%h Brother HL-1110</name>
+  <!-- %h expands to the hostname -->
+  <name replace-wildcards="yes">%h CUPS</name>
+
+  <!-- Generic IPP service; CUPS will attach per‑queue records -->
   <service>
     <type>_ipp._tcp</type>
     <subtype>_universal._sub._ipp._tcp</subtype>
     <port>631</port>
-    <txt-record>txtvers=1</txt-record>
-    <txt-record>qtotal=1</txt-record>
-    <txt-record>rp=printers/BrotherHL1110</txt-record>
-    <txt-record>ty=Brother HL-1110</txt-record>
-    <txt-record>note=Home Assistant CUPS</txt-record>
-    <txt-record>product=(Brother HL-1110)</txt-record>
-    <txt-record>UUID=00000000-1110-2222-3333-444455556666</txt-record>
-    <txt-record>URF=none</txt-record>
   </service>
+
+  <!-- Legacy printer service for older clients -->
   <service>
     <type>_printer._tcp</type>
     <port>631</port>
