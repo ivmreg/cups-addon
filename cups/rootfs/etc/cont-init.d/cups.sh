@@ -55,33 +55,16 @@ DefaultShared Yes
 </Limit>
 EOL
 
-# Remove ephemeral files and link persistent configs
-rm -f /etc/cups/cupsd.conf /etc/cups/printers.conf
+# Create a symlink from the default config location to our persistent location
 ln -sf /data/cups/config/cupsd.conf /etc/cups/cupsd.conf
 ln -sf /data/cups/config/printers.conf /etc/cups/printers.conf
 
-# Start DBus + Avahi
+# Start DBus (for Avahi) and Avahi daemon first
 dbus-daemon --system --nopidfile
 avahi-daemon -D
+
+# Give daemons a moment to settle
 sleep 2
 
-# Start cupsd in background so lpadmin can talk to it
-/usr/sbin/cupsd -f &
-CUPSD_PID=$!
-
-# Wait for socket
-for i in {1..10}; do
-  if lpstat -r >/dev/null 2>&1; then break; fi
-  sleep 1
-done
-
-# Ensure HL1110 queue exists
-lpadmin -p HL1110 \
-        -E \
-        -v socket://192.168.52.167:9100 \
-        -m drv:///brlaser.drv/br1110.ppd
-cupsenable HL1110
-cupsaccept HL1110
-
-# Wait on cupsd for s6 supervision
-wait $CUPSD_PID
+# Finally, start cupsd in foreground for s6 supervision
+exec /usr/sbin/cupsd -f
