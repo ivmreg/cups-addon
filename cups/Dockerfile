@@ -26,7 +26,8 @@ RUN \
       avahi \
       avahi-compat-libdns_sd \
       avahi-tools \
-      dbus
+      dbus \
+      cups-dev
 
 # Build and install brlaser
 RUN git clone https://github.com/pdewacht/brlaser.git /tmp/brlaser && \
