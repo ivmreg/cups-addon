@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Persistent dirs
-mkdir -p /data/cups/cache /data/cups/logs /data/cups/state /data/cups/config
+mkdir -p /data/cups/{cache,logs,state,config/ppd}
 chown -R root:lp /data/cups
 chmod -R 775 /data/cups
 
@@ -11,8 +11,9 @@ mkdir -p /etc/cups /etc/avahi/services /run/cups /run/dbus
 chown root:lp /run/cups
 chmod 775 /run/cups
 
-# Write CUPS config
-cat > /data/cups/config/cupsd.conf <<'EOL'
+# Seed cupsd.conf only if not already present
+if [ ! -s /data/cups/config/cupsd.conf ]; then
+  cat > /data/cups/config/cupsd.conf <<'EOL'
 Port 631
 ServerAlias *
 
@@ -54,10 +55,18 @@ DefaultShared Yes
   Allow 192.168.1.0/24
 </Limit>
 EOL
+fi
 
-# Create a symlink from the default config location to our persistent location
+# Ensure printers.conf exists with correct perms
+touch /data/cups/config/printers.conf
+chown root:lp /data/cups/config/printers.conf
+chmod 600 /data/cups/config/printers.conf
+
+# Symlinks into /etc/cups
 ln -sf /data/cups/config/cupsd.conf /etc/cups/cupsd.conf
 ln -sf /data/cups/config/printers.conf /etc/cups/printers.conf
+rm -rf /etc/cups/ppd
+ln -s /data/cups/config/ppd /etc/cups/ppd
 
 # Start DBus (for Avahi) and Avahi daemon first
 dbus-daemon --system --nopidfile
