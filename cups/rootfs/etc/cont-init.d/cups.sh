@@ -25,6 +25,7 @@ PreserveJobHistory No
 
 BrowseLocalProtocols dnssd
 DefaultShared Yes
+DefaultEncryption Never
 
 <Location />
   Order allow,deny
