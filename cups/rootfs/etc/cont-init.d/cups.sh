@@ -23,8 +23,7 @@ Listen 0.0.0.0:631
   Order allow,deny
   Allow localhost
   Allow 10.0.0.0/8
-  Allow 172.16.0.0/12
-  Allow 192.168.0.0/16
+  Allow 192.168.1.0/16
 </Location>
 
 # Admin access (no authentication)
@@ -32,8 +31,7 @@ Listen 0.0.0.0:631
   Order allow,deny
   Allow localhost
   Allow 10.0.0.0/8
-  Allow 172.16.0.0/12
-  Allow 192.168.0.0/16
+  Allow 192.168.1.0/16
 </Location>
 
 # Job management permissions
@@ -41,16 +39,14 @@ Listen 0.0.0.0:631
   Order allow,deny
   Allow localhost
   Allow 10.0.0.0/8
-  Allow 172.16.0.0/12
-  Allow 192.168.0.0/16
+  Allow 192.168.1.0/16
 </Location>
 
 <Limit Send-Document Send-URI Hold-Job Release-Job Restart-Job Purge-Jobs Set-Job-Attributes Create-Job-Subscription Renew-Subscription Cancel-Subscription Get-Notifications Reprocess-Job Cancel-Current-Job Suspend-Current-Job Resume-Job Cancel-My-Jobs Close-Job CUPS-Move-Job CUPS-Get-Document>
   Order allow,deny
   Allow localhost
   Allow 10.0.0.0/8
-  Allow 172.16.0.0/12
-  Allow 192.168.0.0/16
+  Allow 192.168.1.0/16
 </Limit>
 
 # Enable web interface
