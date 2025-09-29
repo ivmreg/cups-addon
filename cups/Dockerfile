@@ -10,7 +10,9 @@
 
 # # Final runtime image
 # FROM $BUILD_FROM
-FROM ghcr.io/hassio-addons/base-alpine:latest
+
+ARG BUILD_FROM
+FROM $BUILD_FROM
 
 ENV LANG=C.UTF-8
 ENV CUPS_DATADIR=/data/cups
