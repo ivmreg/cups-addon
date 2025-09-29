@@ -28,8 +28,8 @@ RUN apk add --no-cache \
       avahi-compat-libdns_sd \
       dbus
 
-# # Copy brlaser artifacts from builder
-# COPY --from=builder /tmp/install/ /
+# Copy brlaser artifacts from builder
+COPY --from=builder /tmp/install/ /
 
 # Copy rootfs (scripts and configs)
 COPY rootfs /
