@@ -1,17 +1,14 @@
-# ARG BUILD_FROM
-# FROM $BUILD_FROM as builder
-
-# RUN apk add --no-cache build-base cmake git cups-dev
-
-# # Build brlaser
-# RUN git clone https://github.com/pdewacht/brlaser.git /tmp/brlaser && \
-#     cd /tmp/brlaser && \
-#     cmake . && make && make install DESTDIR=/tmp/install
-
-# # Final runtime image
-# FROM $BUILD_FROM
-
 ARG BUILD_FROM
+FROM $BUILD_FROM as builder
+
+RUN apk add --no-cache build-base cmake git cups-dev
+
+# Build brlaser
+RUN git clone https://github.com/pdewacht/brlaser.git /tmp/brlaser && \
+    cd /tmp/brlaser && \
+    cmake . && make && make install DESTDIR=/tmp/install
+
+# Final runtime image
 FROM $BUILD_FROM
 
 ENV LANG=C.UTF-8
