@@ -1,79 +1,34 @@
-#!/usr/bin/with-contenv bash
-set -euo pipefail
+#!/usr/bin/with-contenv bashio
 
-# Persistent dirs
-mkdir -p /data/cups/{cache,logs,state,config/ppd}
-chown -R root:lp /data/cups
-chmod -R 775 /data/cups
+# This script performs one-time initialization.
 
-# Ensure system dirs
-mkdir -p /etc/cups /etc/avahi/services /run/cups /run/dbus
-chown root:lp /run/cups
-chmod 775 /run/cups
+set -e
 
-# Seed cupsd.conf only if not already present
-if [ ! -s /data/cups/config/cupsd.conf ]; then
-  cat > /data/cups/config/cupsd.conf <<'EOL'
-Port 631
-ServerAlias *
+CONFIG_PATH="/data/cups"
+CONFIG_FILE="${CONFIG_PATH}/config/cupsd.conf"
 
-WebInterface Yes
+bashio::log.info "Initializing CUPS configuration..."
 
-DefaultAuthType None
-DefaultEncryption Never
-JobSheets none,none
-PreserveJobHistory No
+# 1. Create persistent directory structure if it doesn't exist.
+# This is moved from the Dockerfile.
+mkdir -p "${CONFIG_PATH}/cache" \
+           "${CONFIG_PATH}/config/ppd" \
+           "${CONFIG_PATH}/logs" \
+           "${CONFIG_PATH}/state"
 
-BrowseLocalProtocols dnssd
-DefaultShared Yes
-
-<Location />
-  Order allow,deny
-  Allow localhost
-  Allow 192.168.1.0/24
-</Location>
-
-<Location /admin>
-  Order allow,deny
-  Allow localhost
-  Allow 192.168.1.0/24
-</Location>
-
-<Location /jobs>
-  Order allow,deny
-  Allow localhost
-  Allow 192.168.1.0/24
-</Location>
-
-<Limit Send-Document Send-URI Hold-Job Release-Job Restart-Job Purge-Jobs \
-       Set-Job-Attributes Create-Job-Subscription Renew-Subscription \
-       Cancel-Subscription Get-Notifications Reprocess-Job Cancel-Current-Job \
-       Suspend-Current-Job Resume-Job Cancel-My-Jobs Close-Job CUPS-Move-Job \
-       CUPS-Get-Document>
-  Order allow,deny
-  Allow localhost
-  Allow 192.168.1.0/24
-</Limit>
-EOL
+# 2. Copy the default cupsd.conf if one doesn't exist in /data.
+if ! bashio::fs.file_exists "${CONFIG_FILE}"; then
+    bashio::log.info "No cupsd.conf found. Copying default configuration."
+    cp /etc/cups/cupsd.conf "${CONFIG_FILE}"
 fi
 
-# Ensure printers.conf exists with correct perms
-touch /data/cups/config/printers.conf
-chown root:lp /data/cups/config/printers.conf
-chmod 600 /data/cups/config/printers.conf
+# 3. Get admin credentials from add-on options.
+ADMIN_USER=$(bashio::config 'admin_username')
+ADMIN_PASS=$(bashio::config 'admin_password')
 
-# Symlinks into /etc/cups
-ln -sf /data/cups/config/cupsd.conf /etc/cups/cupsd.conf
-ln -sf /data/cups/config/printers.conf /etc/cups/printers.conf
-rm -rf /etc/cups/ppd
-ln -s /data/cups/config/ppd /etc/cups/ppd
+# 4. Set the admin password for the CUPS 'root' user group.
+# This makes the username/password from the config functional.
+bashio::log.info "Setting CUPS admin password..."
+lppasswd -g sys -a "${ADMIN_USER}" <<< "${ADMIN_PASS}"
 
-# Start DBus (for Avahi) and Avahi daemon first
-dbus-daemon --system --nopidfile
-avahi-daemon -D
-
-# Give daemons a moment to settle
-sleep 2
-
-# Finally, start cupsd in foreground for s6 supervision
-exec /usr/sbin/cupsd -f
+bashio::log.info "Initialization complete."
