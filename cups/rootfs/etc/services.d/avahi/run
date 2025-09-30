@@ -10,4 +10,4 @@ bashio::log.info "Starting Avahi daemon..."
 mkdir -p /var/run/avahi-daemon
 
 # Start Avahi in foreground (Alpine build supports --debug, not --no-daemon)
-exec avahi-daemon --no-drop-root --no-chroot --debug=warn
+exec avahi-daemon --no-drop-root --no-chroot
