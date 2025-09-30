@@ -18,8 +18,4 @@ map:
   - data:rw
 init: false
 startup: services
-ingress: true
-ingress_port: 631
-webui: http://[HOST]:[PORT:631]
-panel_icon: mdi:printer
 apparmor: true
