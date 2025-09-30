@@ -1,5 +1,5 @@
 ---
-version: 1.0.29 # Consider updating the version number
+version: 1.0.30 # Consider updating the version number
 slug: cups
 name: CUPS Print Server
 description: CUPS print server for network printing
