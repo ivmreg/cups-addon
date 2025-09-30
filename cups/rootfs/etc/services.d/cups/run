@@ -1,33 +1,18 @@
-#!/bin/sh
+#!/usr/bin/with-contenv bashio
 # rootfs/etc/services.d/cups/run
-# Wait for DBus socket, then start cupsd in foreground. s6 will supervise this service.
+# Start CUPS daemon after dependencies are ready
 
 set -e
 
-# Wait for DBus system bus to be available (15s timeout)
-BUS_SOCKET="/var/run/dbus/system_bus_socket"
-wait_seconds=15
-attempts=$wait_seconds
+bashio::log.info "Starting CUPS daemon..."
 
-while [ "$attempts" -gt 0 ]; do
-  if [ -e "${BUS_SOCKET}" ]; then
-    break
-  fi
-  sleep 1
-  attempts=$((attempts - 1))
-done
-
-if [ ! -e "${BUS_SOCKET}" ]; then
-  echo "DBus system bus socket not found after ${wait_seconds}s; continuing anyway" >&2
-fi
-
-# Ensure /etc/cups points to /data/cups/config (safety if cont-init missed it)
-if [ ! -L /etc/cups ]; then
-  if [ -d /data/cups/config ]; then
+# Double-check persistent config symlink (safety if cont-init missed it)
+if [ ! -L /etc/cups ] && [ -d /data/cups/config ]; then
     rm -rf /etc/cups || true
     ln -s /data/cups/config /etc/cups || true
-  fi
 fi
 
-# Exec CUPS in foreground (so s6 can supervise)
-exec /usr/sbin/cupsd -f
+# Start CUPS in foreground with s6 notification on port availability
+exec s6-notifyoncheck -d -n 300 -w 1000 \
+    -c "nc -z localhost 631" \
+    /usr/sbin/cupsd -f

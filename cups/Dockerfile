@@ -1,5 +1,5 @@
-# sensible default so tooling doesn't warn; supervisor/build system can override this ARG
-ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest
+# Build arguments
+ARG BUILD_FROM
 
 # ---- Build stage ----
 FROM ${BUILD_FROM} AS builder
@@ -38,27 +38,6 @@ RUN apk add --no-cache \
 
 # Copy brlaser artifacts from builder
 COPY --from=builder /tmp/install/ /
-
-# Copy rootfs into a temporary dir to avoid Docker trying to overwrite system dirs
-COPY rootfs /tmp/rootfs/
-
-# Merge rootfs contents into /:
-# - if both are directories, copy contents into existing dir
-# - otherwise remove existing target and move source into place
-RUN set -eux; \
-    for src in /tmp/rootfs/*; do \
-      name="$(basename "$src")"; \
-      tgt="/${name}"; \
-      if [ -d "$src" ] && [ -d "$tgt" ]; then \
-        echo "Merging directory $src -> $tgt"; \
-        cp -a "$src/." "$tgt/"; \
-      else \
-        echo "Replacing $tgt with $src"; \
-        rm -rf "$tgt" || true; \
-        mv "$src" "$tgt"; \
-      fi; \
-    done; \
-    rm -rf /tmp/rootfs
 
 # Expose IPP port
 EXPOSE 631

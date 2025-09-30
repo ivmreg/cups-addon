@@ -1,26 +1,15 @@
-#!/bin/sh
+#!/usr/bin/with-contenv bashio
 # rootfs/etc/services.d/avahi/run
-# Run/monitor Avahi. Some avahi builds do not offer a no-fork foreground mode,
-# so this script launches Avahi and monitors the daemon process, restarting if needed.
+# Run Avahi daemon with proper notification for s6
 
 set -e
 
-# loop forever; start avahi and then wait while it's present
-while true; do
-  # Try to run avahi in foreground if supported, otherwise start daemonized
-  if avahi-daemon --help 2>&1 | grep -q -- '--no-.*daemon\|--no-daemon'; then
-    # attempt foreground/no-daemon mode
-    avahi-daemon --no-daemon || true
-  else
-    # fallback: daemonize and then monitor process
-    avahi-daemon -D || true
-  fi
+bashio::log.info "Starting Avahi daemon..."
 
-  # Wait until process dies; when it dies loop restarts it
-  while pgrep -x avahi-daemon > /dev/null 2>&1; do
-    sleep 2
-  done
+# Ensure Avahi config directory exists
+mkdir -p /var/run/avahi-daemon
 
-  echo "avahi-daemon exited; restarting in 2s..." >&2
-  sleep 2
-done
+# Start Avahi with s6 notification on successful socket creation
+exec s6-notifyoncheck -d -n 300 -w 1000 \
+    -c "test -e /var/run/avahi-daemon/socket" \
+    avahi-daemon --no-drop-root --no-chroot --no-daemon
