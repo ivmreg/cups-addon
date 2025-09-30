@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bashio
+#!/command/with-contenv bashio
 # rootfs/etc/services.d/cups/run
 # Start CUPS daemon after dependencies are ready
 

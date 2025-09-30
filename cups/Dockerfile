@@ -39,9 +39,18 @@ RUN apk add --no-cache \
 # Copy brlaser artifacts from builder
 COPY --from=builder /tmp/install/ /
 
+# Copy rootfs
+COPY rootfs /
+
+# Fix permissions for s6-overlay
+RUN chmod +x /etc/services.d/*/run && \
+    chmod +x /etc/cont-init.d/* || true
+
 # Expose IPP port
 EXPOSE 631
 
 # Healthcheck: verify scheduler is alive (full path to lpstat)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD /usr/bin/lpstat -r || exit 1
+
+# S6 will be PID 1 through Home Assistant

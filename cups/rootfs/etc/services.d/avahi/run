@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bashio
+#!/command/with-contenv bashio
 # rootfs/etc/services.d/avahi/run
 # Run Avahi daemon with proper notification for s6
 

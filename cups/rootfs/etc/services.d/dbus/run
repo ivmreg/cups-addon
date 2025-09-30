@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bashio
+#!/command/with-contenv bashio
 # rootfs/etc/services.d/dbus/run
 # Run DBus in foreground so s6 supervises it.
 
