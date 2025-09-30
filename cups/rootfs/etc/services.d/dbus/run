@@ -1,0 +1,8 @@
+#!/bin/sh
+# rootfs/etc/services.d/dbus/run
+# Run DBus in foreground so s6 supervises it.
+
+set -e
+
+# Start DBus system bus in foreground (no forking)
+exec dbus-daemon --system --nofork

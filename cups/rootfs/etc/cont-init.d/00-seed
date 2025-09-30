@@ -1,0 +1,95 @@
+#!/usr/bin/with-contenv bashio
+# rootfs/etc/cont-init.d/00-seed
+# Idempotent seeding of /data/cups and symlink /etc/cups -> /data/cups/config
+
+set -euo pipefail
+
+CONFIG_PATH="/data/cups"
+CONFIG_CONF="${CONFIG_PATH}/config"
+PRINTERS_CONF="${CONFIG_CONF}/printers.conf"
+CUPSD_CONF="${CONFIG_CONF}/cupsd.conf"
+PPD_DIR="${CONFIG_CONF}/ppd"
+
+bashio::log.info "cont-init: ensuring persistent CUPS directories exist..."
+
+# Ensure lp group exists (Alpine minimal images can miss it)
+if ! getent group lp > /dev/null 2>&1; then
+  bashio::log.info "Creating lp group..."
+  addgroup -S lp || true
+fi
+
+# Create directory layout
+mkdir -p "${PPD_DIR}" \
+         "${CONFIG_PATH}/cache" \
+         "${CONFIG_PATH}/logs" \
+         "${CONFIG_PATH}/state" \
+         "${CONFIG_CONF}/certs"
+
+# Set ownership & conservative perms (idempotent)
+chown -R root:lp "${CONFIG_PATH}" || true
+# Directories: 0750 (owner rwx, group rx)
+find "${CONFIG_PATH}" -type d -exec chmod 0750 {} \; || true
+# Files: 0640 (owner rw, group r)
+find "${CONFIG_PATH}" -type f -exec chmod 0640 {} \; || true
+# PPDs should be readable by clients; relax later if needed
+chmod 0755 "${PPD_DIR}" || true
+
+# Seed cupsd.conf only if absent/empty
+if [ ! -s "${CUPSD_CONF}" ]; then
+  bashio::log.info "Seeding default cupsd.conf into ${CUPSD_CONF}..."
+  mkdir -p "$(dirname "${CUPSD_CONF}")"
+  cat > "${CUPSD_CONF}" <<'CUPSD'
+# Seeded cupsd.conf - adjust network ACLs to your LAN as needed
+Listen *:631
+ServerAlias *
+Browsing On
+BrowseLocalProtocols dnssd
+DefaultShared Yes
+PreserveJobHistory Yes
+MaxJobs 500
+
+<Location />
+  Order allow,deny
+  Allow 127.0.0.1
+  Allow ::1
+  Allow 192.168.1.0/24
+</Location>
+
+<Location /admin>
+  Order allow,deny
+  Allow 127.0.0.1
+  Allow ::1
+  Allow 192.168.1.0/24
+</Location>
+CUPSD
+  chown root:lp "${CUPSD_CONF}" || true
+  chmod 0640 "${CUPSD_CONF}" || true
+fi
+
+# Ensure printers.conf exists
+if [ ! -f "${PRINTERS_CONF}" ]; then
+  bashio::log.info "Creating empty printers.conf..."
+  touch "${PRINTERS_CONF}"
+  chown root:lp "${PRINTERS_CONF}" || true
+  chmod 0640 "${PRINTERS_CONF}" || true
+fi
+
+# Symlink /etc/cups -> /data/cups/config (if not already a symlink)
+if [ -L /etc/cups ]; then
+  # already a symlink; ensure it points to our config
+  current="$(readlink -f /etc/cups || true)"
+  if [ "${current}" != "${CONFIG_CONF}" ]; then
+    bashio::log.info "Updating /etc/cups symlink to ${CONFIG_CONF}"
+    rm -rf /etc/cups
+    ln -s "${CONFIG_CONF}" /etc/cups
+  fi
+else
+  if [ -e /etc/cups ]; then
+    bashio::log.info "Backing up existing /etc/cups -> /etc/cups.orig"
+    mv /etc/cups /etc/cups.orig || rm -rf /etc/cups || true
+  fi
+  ln -s "${CONFIG_CONF}" /etc/cups
+  bashio::log.info "Linked /etc/cups -> ${CONFIG_CONF}"
+fi
+
+bashio::log.info "cont-init: CUPS persistent init complete."

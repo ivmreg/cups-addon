@@ -1,6 +1,6 @@
 # ---- Build stage ----
-ARG BUILD_FROM
-FROM $BUILD_FROM as builder
+ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest
+FROM ${BUILD_FROM} AS builder
 
 RUN apk add --no-cache build-base cmake git cups-dev
 
