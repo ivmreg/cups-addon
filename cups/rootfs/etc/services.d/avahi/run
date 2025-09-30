@@ -10,5 +10,4 @@ bashio::log.info "Starting Avahi daemon..."
 mkdir -p /var/run/avahi-daemon
 
 # Start Avahi daemon
-fdmove -c 2 1
-exec avahi-daemon --no-drop-root --no-chroot --no-daemon
+exec avahi-daemon --no-drop-root --no-chroot --no-daemon 2>&1

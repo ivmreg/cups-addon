@@ -10,5 +10,4 @@ bashio::log.info "Starting DBus system bus..."
 mkdir -p /var/run/dbus
 
 # Start DBus system bus in foreground (no forking)
-fdmove -c 2 1
-exec dbus-daemon --system --nofork
+exec dbus-daemon --system --nofork 2>&1

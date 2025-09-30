@@ -13,5 +13,4 @@ if [ ! -L /etc/cups ] && [ -d /data/cups/config ]; then
 fi
 
 # Start CUPS in foreground
-fdmove -c 2 1
-exec /usr/sbin/cupsd -f
+exec /usr/sbin/cupsd -f 2>&1

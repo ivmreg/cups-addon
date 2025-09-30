@@ -42,9 +42,9 @@ COPY --from=builder /tmp/install/ /
 # Copy rootfs
 COPY rootfs /
 
-# Fix permissions for s6-overlay
-RUN chmod +x /etc/services.d/*/run && \
-    chmod +x /etc/cont-init.d/* || true
+# Fix permissions for s6-overlay scripts
+RUN chmod -R 755 /etc/services.d && \
+    chmod -R 755 /etc/cont-init.d
 
 # Expose IPP port
 EXPOSE 631
