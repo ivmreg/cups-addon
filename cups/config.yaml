@@ -1,5 +1,5 @@
 ---
-version: "1.0.39"
+version: "1.0.40"
 slug: cups
 name: CUPS Print Server
 description: CUPS print server for network printing
@@ -16,7 +16,7 @@ host_network: true
 dbus: true
 map:
   - data:rw
-init: true
+init: false
 startup: services
 ingress: true
 ingress_port: 631
