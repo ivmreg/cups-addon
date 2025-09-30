@@ -1,5 +1,5 @@
 ---
-version: 1.0.29
+version: 1.0.28 # Consider updating the version number
 slug: cups
 name: CUPS Print Server
 description: CUPS print server for network printing
@@ -12,15 +12,9 @@ arch:
   - amd64
   - i386
 hassio_api: true
-host_network: true # Re-enable host network mode for mDNS
-dbus: true         # Grant access to the system D-Bus
+host_network: true
+dbus: true
 map:
   - data:rw
 init: false
-options:
-  admin_username: "admin"
-  admin_password: "admin"
-schema:
-  admin_username: str
-  admin_password: password
 startup: services
