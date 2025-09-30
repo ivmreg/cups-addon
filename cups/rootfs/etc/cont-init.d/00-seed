@@ -45,6 +45,10 @@ ServerAlias *
 Browsing On
 BrowseLocalProtocols dnssd
 DefaultShared Yes
+DefaultEncryption Never
+DefaultPaperSize A4
+DirtyCleanInterval 0
+SSLOptions None
 PreserveJobHistory Yes
 MaxJobs 500
 
