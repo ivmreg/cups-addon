@@ -1,11 +1,10 @@
 #!/usr/bin/with-contenv bashio
-
-# This script runs the main CUPS service.
-
 set -e
 
-bashio::log.info "Starting CUPS daemon..."
+bashio::log.info "Starting DBus and Avahi..."
+dbus-daemon --system --nopidfile
+avahi-daemon -D
+sleep 2
 
-# The ENV variables in the Dockerfile handle persistence.
-# We just need to start the service in the foreground.
+bashio::log.info "Starting CUPS scheduler..."
 exec /usr/sbin/cupsd -f
