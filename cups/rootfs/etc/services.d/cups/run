@@ -12,7 +12,6 @@ if [ ! -L /etc/cups ] && [ -d /data/cups/config ]; then
     ln -s /data/cups/config /etc/cups || true
 fi
 
-# Start CUPS in foreground with s6 notification on port availability
-exec s6-notifyoncheck -d -n 300 -w 1000 \
-    -c "nc -z localhost 631" \
-    /usr/sbin/cupsd -f
+# Start CUPS in foreground
+fdmove -c 2 1
+exec /usr/sbin/cupsd -f

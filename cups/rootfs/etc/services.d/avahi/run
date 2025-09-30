@@ -9,7 +9,6 @@ bashio::log.info "Starting Avahi daemon..."
 # Ensure Avahi config directory exists
 mkdir -p /var/run/avahi-daemon
 
-# Start Avahi with s6 notification on successful socket creation
-exec s6-notifyoncheck -d -n 300 -w 1000 \
-    -c "test -e /var/run/avahi-daemon/socket" \
-    avahi-daemon --no-drop-root --no-chroot --no-daemon
+# Start Avahi daemon
+fdmove -c 2 1
+exec avahi-daemon --no-drop-root --no-chroot --no-daemon

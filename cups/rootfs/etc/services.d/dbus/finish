@@ -1,0 +1,5 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+declare exit_code=$1
+
+bashio::log.info "DBus service stopped with exit code ${exit_code}"

@@ -8,9 +8,7 @@ bashio::log.info "Starting DBus system bus..."
 
 # Wait for DBus socket directory
 mkdir -p /var/run/dbus
-sleep 1
 
 # Start DBus system bus in foreground (no forking)
-exec s6-notifyoncheck -d -n 300 -w 1000 \
-    -c "test -e /var/run/dbus/system_bus_socket" \
-    dbus-daemon --system --nofork
+fdmove -c 2 1
+exec dbus-daemon --system --nofork
