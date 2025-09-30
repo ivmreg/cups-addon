@@ -40,5 +40,5 @@ COPY rootfs /
 # Expose IPP port
 EXPOSE 631
 
-# Healthcheck: verify scheduler is alive
-HEALTHCHECK CMD lpstat -r || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
+  CMD /usr/bin/lpstat -r || exit 1

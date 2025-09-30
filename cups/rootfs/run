@@ -1,0 +1,46 @@
+#!/usr/bin/with-contenv bashio
+# rootfs/run  - start DBus, Avahi, then cupsd (foreground).
+set -euo pipefail
+
+bashio::log.info "Starting system DBus..."
+# Start DBus in background reliably
+dbus-daemon --system --fork --nopidfile || {
+  bashio::log.err "dbus-daemon failed to start"
+  exit 1
+}
+
+# Wait for system bus socket with timeout
+BUS_SOCKET="/var/run/dbus/system_bus_socket"
+timeout=15
+while [ $timeout -gt 0 ]; do
+  if [ -e "${BUS_SOCKET}" ]; then
+    break
+  fi
+  sleep 1
+  timeout=$((timeout - 1))
+done
+
+if [ ! -e "${BUS_SOCKET}" ]; then
+  bashio::log.err "DBus system bus socket not available; aborting."
+  exit 1
+fi
+bashio::log.info "DBus up."
+
+bashio::log.info "Starting Avahi daemon..."
+# use -D to daemonize; avahi-daemon requires DBus socket
+avahi-daemon -D || {
+  bashio::log.warn "avahi-daemon failed to start in foreground; trying background..."
+  avahi-daemon -D || true
+}
+sleep 1
+
+# Optionally validate that avahi is running
+if ! pgrep -x avahi-daemon > /dev/null 2>&1; then
+  bashio::log.warn "avahi-daemon not detected running; mDNS may fail"
+else
+  bashio::log.info "avahi-daemon running"
+fi
+
+bashio::log.info "Starting CUPS scheduler (foreground)..."
+# Exec so PID 1 becomes cupsd (supervisor expects long-running process)
+exec /usr/sbin/cupsd -f

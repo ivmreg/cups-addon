@@ -1,5 +1,5 @@
 ---
-version: 1.0.33 # Consider updating the version number
+version: "1.0.35"
 slug: cups
 name: CUPS Print Server
 description: CUPS print server for network printing
@@ -16,5 +16,5 @@ host_network: true
 dbus: true
 map:
   - data:rw
-init: false
+init: true
 startup: services
