@@ -1,5 +1,5 @@
 ---
-version: "1.0.43"
+version: "1.0.44"
 slug: cups
 name: CUPS Print Server
 description: CUPS print server for network printing

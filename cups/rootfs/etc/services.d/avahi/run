@@ -1,13 +1,13 @@
 #!/command/with-contenv bashio
 # rootfs/etc/services.d/avahi/run
-# Run Avahi daemon with proper notification for s6
+# Run Avahi daemon under s6 supervision
 
 set -e
 
 bashio::log.info "Starting Avahi daemon..."
 
-# Ensure Avahi config directory exists
+# Ensure Avahi runtime dir exists
 mkdir -p /var/run/avahi-daemon
 
-# Start Avahi daemon
-exec avahi-daemon --no-drop-root --no-chroot --no-daemon 2>&1
+# Start Avahi in foreground (Alpine build supports --debug, not --no-daemon)
+exec avahi-daemon --no-drop-root --no-chroot --debug=warn
