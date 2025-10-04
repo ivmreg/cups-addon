@@ -1,0 +1,46 @@
+<?xml version="1.0" ?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<service-group>
+  <!-- Avahi service for Brother HL-1110 (brlaser v6) -->
+  <name replace-wildcards="yes">NetPrintHL1110</name>
+
+  <service>
+    <type>_ipp._tcp</type>
+    <subtype>_universal._sub._ipp._tcp</subtype>
+    <port>631</port>
+
+    <!-- Basic IPP / CUPS records -->
+    <txt-record>txtvers=1</txt-record>
+    <txt-record>qtotal=1</txt-record>
+
+    <!-- Use the UUID you provided (upper-case, no urn: prefix) -->
+    <txt-record>UUID=2D142CF8-1F39-31B8-7806-6BE2763B3B29</txt-record>
+
+    <!-- Printer metadata -->
+    <txt-record>note=Office</txt-record>
+    <txt-record>product=Brother HL-1110</txt-record>
+    <txt-record>rp=printers/NetPrintHL1110</txt-record>
+
+    <!-- State & capabilities -->
+    <!-- printer-state: 3 = idle -->
+    <txt-record>printer-state=3</txt-record>
+
+    <!-- printer-type: numeric flags (kept simple from CUPS Type 4164 -> 0x1044) -->
+    <txt-record>printer-type=0x1044</txt-record>
+
+    <!-- Capability flags -->
+    <txt-record>Duplex=F</txt-record>
+    <txt-record>Transparent=F</txt-record>
+    <txt-record>Binary=T</txt-record>
+    <txt-record>TBCP=F</txt-record>
+
+    <!-- URF (printer features) - minimal set -->
+    <txt-record>URF=none</txt-record>
+
+    <!-- Common PDLs that clients may advertise/accept -->
+    <txt-record>pdl=application/octet-stream,application/pdf,application/postscript,application/vnd.cups-raster,image/gif,image/jpeg,image/png,image/tiff,text/plain</txt-record>
+
+    <!-- Device URI (useful for discovery/administration) -->
+    <txt-record>device-uri=socket://192.168.52.167:9100</txt-record>
+  </service>
+</service-group>
