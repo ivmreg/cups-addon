@@ -2,7 +2,7 @@
 <!DOCTYPE service-group SYSTEM "avahi-service.dtd">
 <service-group>
   <!-- Avahi service for Brother HL-1110 (brlaser v6) -->
-  <name replace-wildcards="yes">NetPrintHL1110</name>
+  <name replace-wildcards="yes">NetPrintHL1110 Avahi</name>
 
   <service>
     <type>_ipp._tcp</type>
