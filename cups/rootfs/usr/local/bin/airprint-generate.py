@@ -1,276 +1,198 @@
 #!/usr/bin/env python3
-
 """
-Copyright (c) 2010 Timothy J Fontaine <tjfontaine@atxconsulting.com>
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
+Generate Avahi service files for AirPrint from CUPS printers.
+Based on https://github.com/chuckcharlie/cups-avahi-airprint
 """
 
-import cups, os, optparse, re
-import urllib.parse as urlparse
-import os.path
-from io import StringIO
-
-from xml.dom.minidom import parseString
-from xml.dom import minidom
-
+import cups
+import os
 import sys
+from xml.etree import ElementTree as ET
 
-try:
-    import lxml.etree as etree
-    from lxml.etree import Element, ElementTree, tostring
-except:
-    try:
-        from xml.etree.ElementTree import Element, ElementTree, tostring
-        etree = None
-    except:
-        try:
-            from elementtree import Element, ElementTree, tostring
-            etree = None
-        except:
-            print('Failed to find python libxml or elementtree, please install one of those or use python >= 2.5')
-            raise
+AVAHI_SERVICE_DIR = '/etc/avahi/services'
 
-XML_TEMPLATE = """<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
-<service-group>
-<name replace-wildcards="yes"></name>
-<service>
-	<type>_ipp._tcp</type>
-	<subtype>_universal._sub._ipp._tcp</subtype>
-	<port>631</port>
-	<txt-record>txtvers=1</txt-record>
-	<txt-record>qtotal=1</txt-record>
-	<txt-record>Transparent=T</txt-record>
-	<txt-record>URF=none</txt-record>
-</service>
-</service-group>"""
-
-DOCUMENT_TYPES = {
-    # These content-types will be at the front of the list
-    'application/pdf': True,
-    'application/postscript': True,
-    'application/vnd.cups-raster': True,
-    'application/octet-stream': True,
-    'image/urf': True,
-    'image/png': True,
-    'image/tiff': True,
-    'image/png': True,
-    'image/jpeg': True,
-    'image/gif': True,
-    'text/plain': True,
-    'text/html': True,
-    # These content-types will never be reported
-    'image/x-xwindowdump': False,
-    'image/x-xpixmap': False,
-    'image/x-xbitmap': False,
-    'image/x-sun-raster': False,
-    'image/x-sgi-rgb': False,
-    'image/x-portable-pixmap': False,
-    'image/x-portable-graymap': False,
-    'image/x-portable-bitmap': False,
-    'image/x-portable-anymap': False,
-    'application/x-shell': False,
-    'application/x-perl': False,
-    'application/x-csource': False,
-    'application/x-cshell': False,
-}
-
-class AirPrintGenerate(object):
-    def __init__(self, host=None, user=None, port=None, verbose=False,
-        directory=None, prefix='AirPrint-', adminurl=False):
-        self.host = host
-        self.user = user
-        self.port = port
-        self.verbose = verbose
-        self.directory = directory
-        self.prefix = prefix
-        self.adminurl = adminurl
-        
-        if self.user:
-            cups.setUser(self.user)
+class AirPrintGenerator:
+    def __init__(self):
+        self.service_dir = AVAHI_SERVICE_DIR
 
     def generate(self):
-        if not self.host:
+        try:
             conn = cups.Connection()
-        else:
-            if not self.port:
-                self.port = 631
-            conn = cups.Connection(self.host, self.port)
-            
+        except RuntimeError as e:
+            print(f"Error connecting to CUPS: {e}", file=sys.stderr)
+            return False
+
         printers = conn.getPrinters()
         
-        for p, v in list(printers.items()):
-            if v['printer-is-shared']:
-                attrs = conn.getPrinterAttributes(p)
-                uri = urlparse.urlparse(v['printer-uri-supported'])
+        if not printers:
+            print("No printers found in CUPS")
+            return True
 
-                tree = ElementTree()
-                tree.parse(StringIO(XML_TEMPLATE.replace('\n', '').replace('\r', '').replace('\t', '')))
+        for printer_name, printer_attrs in printers.items():
+            # Skip non-shared printers
+            if not printer_attrs.get('printer-is-shared', False):
+                print(f"Skipping {printer_name} - not shared")
+                continue
 
-                name = tree.find('name')
-                name.text = 'AirPrint %s @ %%h' % (p)
+            self._generate_service_file(conn, printer_name, printer_attrs)
 
-                service = tree.find('service')
+        return True
 
-                port = service.find('port')
-                port_no = None
-                if hasattr(uri, 'port'):
-                  port_no = uri.port
-                if not port_no:
-                    port_no = self.port
-                if not port_no:
-                    port_no = cups.getPort()
-                port.text = '%d' % port_no
+    def _generate_service_file(self, conn, printer_name, printer_attrs):
+        # Get printer details
+        state = printer_attrs.get('printer-state', 3)
+        info = printer_attrs.get('printer-info', printer_name)
+        location = printer_attrs.get('printer-location', '')
+        make_model = printer_attrs.get('printer-make-and-model', 'Unknown Printer')
 
-                if hasattr(uri, 'path'):
-                  rp = uri.path
-                else:
-                  rp = uri[2]
-                
-                re_match = re.match(r'^//(.*):(\d+)(/.*)', rp)
-                if re_match:
-                  rp = re_match.group(3)
-                
-                rp = re.sub(r'^/+', '', rp)
-                
-                path = Element('txt-record')
-                path.text = 'rp=%s' % (rp)
-                service.append(path)
+        # Analyze PPD for capabilities
+        color = False
+        duplex = False
+        max_dpi = 600  # Default DPI
+        
+        try:
+            ppd_path = conn.getPPD(printer_name)
+            if ppd_path:
+                with open(ppd_path, 'r', errors='ignore') as f:
+                    ppd_content = f.read()
+                    # Check for color support
+                    color = 'ColorDevice: True' in ppd_content
+                    # Check for duplex
+                    if '*Duplex' in ppd_content:
+                        # Make sure it's not just "Duplex: None"
+                        duplex = '*Duplex DuplexNoTumble' in ppd_content or '*Duplex DuplexTumble' in ppd_content
+                    # Check for resolution
+                    if '1200' in ppd_content:
+                        max_dpi = 1200
+                    elif '600' in ppd_content:
+                        max_dpi = 600
+                # Clean up temp PPD
+                try:
+                    os.unlink(ppd_path)
+                except:
+                    pass
+        except (cups.IPPError, IOError, OSError) as e:
+            print(f"Could not read PPD for {printer_name}: {e}", file=sys.stderr)
 
-                desc = Element('txt-record')
-                desc.text = 'note=%s' % (v['printer-info'])
-                service.append(desc)
+        # Brother HL-1110 specific: mono laser, no duplex, 600/1200 DPI
+        is_brother_hl1110 = 'HL-1110' in make_model or 'HL1110' in printer_name.upper()
+        if is_brother_hl1110:
+            color = False
+            duplex = False
+            max_dpi = 1200  # HL-1110 supports 1200x1200 DPI
 
-                product = Element('txt-record')
-                product.text = 'product=(GPL Ghostscript)'
-                service.append(product)
+        # Build URF capabilities string
+        # iOS requires proper URF - "none" causes deselection!
+        # Format: <colorspace><bitdepth>,CP<copies>,PQ<qualities>,RS<dpi>,DM<duplex>
+        urf_parts = []
+        
+        if color:
+            urf_parts.append('SRGB24')  # 24-bit sRGB color
+            urf_parts.append('W8')       # 8-bit grayscale
+        else:
+            urf_parts.append('W8')       # 8-bit grayscale only (mono printer)
+        
+        urf_parts.append('CP1')          # Copy support
+        urf_parts.append('PQ3-4-5')      # Print quality: draft(3), normal(4), high(5)
+        urf_parts.append(f'RS{max_dpi}') # Resolution
+        urf_parts.append('IS1-2-3')      # Input slot support
+        urf_parts.append('MT1-2-3')      # Media type support
+        urf_parts.append('OB9')          # Output bin
+        
+        if duplex:
+            urf_parts.append('DM1')       # Duplex mode 1 (long edge)
+        
+        urf_string = ','.join(urf_parts)
 
-                state = Element('txt-record')
-                state.text = 'printer-state=%s' % (v['printer-state'])
-                service.append(state)
+        # PDL (Page Description Languages) supported
+        pdl = ','.join([
+            'application/octet-stream',
+            'application/pdf',
+            'application/postscript',
+            'image/urf',
+            'image/jpeg',
+            'image/png',
+            'image/pwg-raster',
+        ])
 
-                ptype = Element('txt-record')
-                ptype.text = 'printer-type=%s' % (hex(v['printer-type']))
-                service.append(ptype)
+        # Create XML service file
+        root = ET.Element('service-group')
+        
+        name_elem = ET.SubElement(root, 'name')
+        name_elem.set('replace-wildcards', 'yes')
+        name_elem.text = f'AirPrint {info} @ %h'
+        
+        service = ET.SubElement(root, 'service')
+        
+        # IPP service type
+        type_elem = ET.SubElement(service, 'type')
+        type_elem.text = '_ipp._tcp'
+        
+        # Universal subtype for AirPrint
+        subtype = ET.SubElement(service, 'subtype')
+        subtype.text = '_universal._sub._ipp._tcp'
+        
+        # Port
+        port = ET.SubElement(service, 'port')
+        port.text = '631'
 
-                if attrs['color-supported']:
-                    color = Element('txt-record')
-                    color.text = 'Color=T'
-                    service.append(color)
+        # TXT records - order matters for some iOS versions
+        txt_records = [
+            ('txtvers', '1'),
+            ('qtotal', '1'),
+            ('rp', f'printers/{printer_name}'),
+            ('ty', make_model),
+            ('note', location if location else info),
+            ('product', f'({make_model})'),
+            ('pdl', pdl),
+            ('Color', 'T' if color else 'F'),
+            ('Duplex', 'T' if duplex else 'F'),
+            ('URF', urf_string),
+            ('printer-state', str(state)),
+            ('printer-type', '0x801044' if color else '0x1044'),
+            ('Transparent', 'T'),
+            ('Binary', 'T'),
+            ('PaperMax', 'legal-A4'),
+            ('kind', 'document,envelope,photo'),
+        ]
 
-                paper_sizes = Element('txt-record')
-                paper_sizes.text = 'PaperMax=legal-A4'
-                service.append(paper_sizes)
+        # Add adminurl for network printers (socket://, ipp://, lpd://)
+        device_uri = printer_attrs.get('device-uri', '')
+        if device_uri:
+            # Extract IP from socket://192.168.x.x:9100 or similar
+            import re
+            ip_match = re.search(r'://([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)', device_uri)
+            if ip_match:
+                printer_ip = ip_match.group(1)
+                txt_records.append(('adminurl', f'http://{printer_ip}'))
 
-                supported_paper = Element('txt-record')
-                supported_paper.text = 'PaperSize=legal-A4'
-                service.append(supported_paper)
+        for key, value in txt_records:
+            txt = ET.SubElement(service, 'txt-record')
+            txt.text = f'{key}={value}'
 
-                pdl = Element('txt-record')
-                fmts = []
-                defer = []
+        # Write service file
+        filename = f'AirPrint-{printer_name}.service'
+        filepath = os.path.join(self.service_dir, filename)
+        
+        tree = ET.ElementTree(root)
+        ET.indent(tree, space='  ')
+        
+        with open(filepath, 'wb') as f:
+            tree.write(f, encoding='utf-8', xml_declaration=True)
+        
+        print(f"Generated {filepath}")
+        return True
 
-                for a in attrs['document-format-supported']:
-                    if a in DOCUMENT_TYPES:
-                        if DOCUMENT_TYPES[a]:
-                            fmts.append(a)
-                    else:
-                        defer.append(a)
 
-                if 'image/urf' not in fmts:
-                    sys.stderr.write('image/urf is not in mime types, %s may not be available on ios6+ (see https://github.com/tjfontaine/airprint-generate/issues/5)%s' % (p, os.linesep))
+def main():
+    # Ensure service directory exists
+    os.makedirs(AVAHI_SERVICE_DIR, exist_ok=True)
+    
+    generator = AirPrintGenerator()
+    success = generator.generate()
+    
+    sys.exit(0 if success else 1)
 
-                fmts = ','.join(fmts+defer)
-
-                dropped = []
-                while len('pdl=%s' % (fmts)) >= 255:
-                    (fmts, drop) = fmts.rsplit(',', 1)
-                    dropped.append(drop)
-
-                if len(dropped) and self.verbose:
-                    sys.stderr.write('%s Losing support for: %s%s' % (p, ','.join(dropped), os.linesep))
-
-                pdl.text = 'pdl=%s' % (fmts)
-                service.append(pdl)
-
-                if self.adminurl:
-                    admin = Element('txt-record')
-                    admin.text = 'adminurl=%s' % (v['printer-uri-supported'])
-                    service.append(admin)
-                
-                fname = '%s%s.service' % (self.prefix, p)
-                
-                if self.directory:
-                    fname = os.path.join(self.directory, fname)
-                
-                f = open(fname, 'w')
-
-                if etree:
-                    tree.write(f, pretty_print=True, xml_declaration=True, encoding="UTF-8")
-                else:
-                    xmlstr = tostring(tree.getroot())
-                    doc = parseString(xmlstr)
-                    dt= minidom.getDOMImplementation('').createDocumentType('service-group', None, 'avahi-service.dtd')
-                    doc.insertBefore(dt, doc.documentElement)
-                    doc.writexml(f)
-                f.close()
-                
-                if self.verbose:
-                    sys.stderr.write('Created: %s%s' % (fname, os.linesep))
 
 if __name__ == '__main__':
-    parser = optparse.OptionParser()
-    parser.add_option('-H', '--host', action="store", type="string",
-        dest='hostname', help='Hostname of CUPS server (optional)', metavar='HOSTNAME')
-    parser.add_option('-P', '--port', action="store", type="int",
-        dest='port', help='Port number of CUPS server', metavar='PORT')
-    parser.add_option('-u', '--user', action="store", type="string",
-        dest='username', help='Username to authenticate with against CUPS',
-        metavar='USER')
-    parser.add_option('-d', '--directory', action="store", type="string",
-        dest='directory', help='Directory to create service files',
-        metavar='DIRECTORY')
-    parser.add_option('-v', '--verbose', action="store_true", dest="verbose",
-        help="Print debugging information to STDERR")
-    parser.add_option('-p', '--prefix', action="store", type="string",
-        dest='prefix', help='Prefix all files with this string', metavar='PREFIX',
-        default='AirPrint-')
-    parser.add_option('-a', '--admin', action="store_true", dest="adminurl",
-        help="Include the printer specified uri as the adminurl")
-    
-    (options, args) = parser.parse_args()
-    
-    from getpass import getpass
-    cups.setPasswordCB(getpass)
-    
-    if options.directory:
-        if not os.path.exists(options.directory):
-            os.mkdir(options.directory)
-    
-    apg = AirPrintGenerate(
-        user=options.username,
-        host=options.hostname,
-        port=options.port,
-        verbose=options.verbose,
-        directory=options.directory,
-        prefix=options.prefix,
-        adminurl=options.adminurl,
-    )
-    
-    apg.generate()
+    main()

@@ -16,7 +16,7 @@ sleep 5
 
 # Initial generation of AirPrint services
 bashio::log.info "Generating initial AirPrint service files..."
-/usr/local/bin/airprint-generate.py -d "${AVAHI_SERVICES_DIR}" -v 2>&1 || bashio::log.warning "Initial AirPrint generation failed (no printers configured yet?)"
+/usr/local/bin/airprint-generate.py 2>&1 || bashio::log.warning "Initial AirPrint generation failed (no printers configured yet?)"
 
 # Watch for printer config changes
 bashio::log.info "Watching ${CUPS_CONFIG_DIR} for printer changes..."
@@ -29,7 +29,7 @@ while read -r directory events filename; do
         # Remove old AirPrint service files
         rm -f "${AVAHI_SERVICES_DIR}"/AirPrint-*.service
         # Regenerate service files
-        /usr/local/bin/airprint-generate.py -d "${AVAHI_SERVICES_DIR}" -v 2>&1 || bashio::log.warning "AirPrint generation failed"
+        /usr/local/bin/airprint-generate.py 2>&1 || bashio::log.warning "AirPrint generation failed"
         bashio::log.info "AirPrint services regenerated"
     fi
 done
