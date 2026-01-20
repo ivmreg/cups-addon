@@ -34,7 +34,11 @@ RUN apk add --no-cache \
       net-snmp \
       avahi \
       avahi-compat-libdns_sd \
-      dbus
+      dbus \
+      # AirPrint service generation dependencies
+      inotify-tools \
+      python3 \
+      py3-pycups
 
 # Copy brlaser artifacts from builder
 COPY --from=builder /tmp/install/ /

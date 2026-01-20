@@ -25,6 +25,9 @@ mkdir -p "${PPD_DIR}" \
          "${CONFIG_PATH}/state" \
          "${CONFIG_CONF}/certs"
 
+# Ensure Avahi services directory exists for AirPrint
+mkdir -p /etc/avahi/services
+
 # Set ownership & conservative perms (idempotent)
 chown -R root:lp "${CONFIG_PATH}" || true
 # Directories: 0750 (owner rwx, group rx)
