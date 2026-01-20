@@ -9,7 +9,7 @@ RUN apk add --no-cache build-base cmake git cups-dev
 # Build brlaser
 RUN git clone https://github.com/pdewacht/brlaser.git /tmp/brlaser \
  && cd /tmp/brlaser \
- && cmake . \
+ && cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 . \
  && make \
  && make install DESTDIR=/tmp/install
 
