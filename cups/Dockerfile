@@ -48,8 +48,7 @@ COPY rootfs /
 
 # Fix permissions for s6-overlay scripts
 RUN chmod -R 755 /etc/services.d && \
-    chmod -R 755 /etc/cont-init.d && \
-    chmod +x /usr/local/bin/airprint-generate.py
+    chmod -R 755 /etc/cont-init.d
 
 # Expose IPP port
 EXPOSE 631
