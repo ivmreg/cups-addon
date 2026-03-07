@@ -1,0 +1,11 @@
+#!/command/execlineb -S1
+# Finish script for airprint-watcher service
+
+foreground { bashio log.info "AirPrint watcher stopped with exit code ${1}" }
+
+# Exit with code 0 to prevent s6 from restarting immediately on intentional shutdown
+if { test ${1} -eq 256 }
+  exit 0
+
+# For any other exit code, allow s6 to restart the service
+exit ${1}
