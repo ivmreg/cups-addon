@@ -1,0 +1,8 @@
+#!/command/with-contenv bashio
+# Cached IPP front-end for AirPrint discovery and print submission.
+
+set -e
+
+bashio::log.info "Starting AirPrint IPP proxy..."
+
+exec /usr/local/bin/airprint-proxy.py 2>&1

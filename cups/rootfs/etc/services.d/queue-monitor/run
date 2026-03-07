@@ -3,7 +3,7 @@
 
 set -e
 
-export CUPS_SERVER="localhost:631"
+export CUPS_SERVER="127.0.0.1:631"
 export CUPS_ENCRYPTION="Never"
 
 bashio::log.info "Starting CUPS queue monitor..."

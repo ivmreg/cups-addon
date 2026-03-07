@@ -5,21 +5,28 @@ Based on https://github.com/chuckcharlie/cups-avahi-airprint
 """
 
 import cups
+import json
 import os
-import re
 import sys
+import tempfile
 from urllib.parse import quote
 from xml.etree import ElementTree as ET
 
 AVAHI_SERVICE_DIR = '/etc/avahi/services'
 CUPS_PPD_DIR = '/etc/cups/ppd'
+AIRPRINT_PROXY_CACHE_DIR = '/data/cups/cache/airprint-proxy'
+AIRPRINT_PROXY_PORT = 8631
 
 class AirPrintGenerator:
     def __init__(self):
         self.service_dir = AVAHI_SERVICE_DIR
         self.ppd_dir = CUPS_PPD_DIR
+        self.cache_dir = AIRPRINT_PROXY_CACHE_DIR
 
     def generate(self):
+        os.makedirs(self.service_dir, exist_ok=True)
+        os.makedirs(self.cache_dir, exist_ok=True)
+
         try:
             conn = cups.Connection()
         except RuntimeError as e:
@@ -29,8 +36,11 @@ class AirPrintGenerator:
         printers = conn.getPrinters()
         
         if not printers:
+            self._remove_stale_outputs(set())
             print("No printers found in CUPS")
             return True
+
+        generated_printers = set()
 
         for printer_name, printer_attrs in printers.items():
             # Skip non-shared printers
@@ -39,6 +49,9 @@ class AirPrintGenerator:
                 continue
 
             self._generate_service_file(printer_name, printer_attrs)
+            generated_printers.add(printer_name)
+
+        self._remove_stale_outputs(generated_printers)
 
         return True
 
@@ -134,7 +147,7 @@ class AirPrintGenerator:
         
         # Port
         port = ET.SubElement(service, 'port')
-        port.text = '631'
+        port.text = str(AIRPRINT_PROXY_PORT)
 
         # Always advertise an idle queue via mDNS; actual delivery is handled by CUPS retry policy.
         advertised_state = '3'
@@ -159,15 +172,6 @@ class AirPrintGenerator:
             ('kind', 'document,envelope,photo'),
         ]
 
-        # Add adminurl for network printers (socket://, ipp://, lpd://)
-        device_uri = printer_attrs.get('device-uri', '')
-        if device_uri:
-            # Extract IP from socket://192.168.x.x:9100 or similar
-            ip_match = re.search(r'://([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)', device_uri)
-            if ip_match:
-                printer_ip = ip_match.group(1)
-                txt_records.append(('adminurl', f'http://{printer_ip}'))
-
         for key, value in txt_records:
             txt = ET.SubElement(service, 'txt-record')
             txt.text = f'{key}={value}'
@@ -179,17 +183,60 @@ class AirPrintGenerator:
         tree = ET.ElementTree(root)
         ET.indent(tree, space='  ')
         
-        with open(filepath, 'wb') as f:
-            tree.write(f, encoding='utf-8', xml_declaration=True)
+        service_tmp = self._temp_path(self.service_dir, f'{filename}.tmp-')
+        with open(service_tmp, 'wb') as service_file:
+            tree.write(service_file, encoding='utf-8', xml_declaration=True)
+        os.replace(service_tmp, filepath)
+
+        self._write_cache_file(
+            printer_name,
+            {
+                'printer_name': printer_name,
+                'info': info,
+                'location': location,
+                'make_model': make_model,
+                'color': color,
+                'duplex': duplex,
+                'max_dpi': max_dpi,
+                'urf': urf_string,
+                'pdl': pdl.split(','),
+                'printer_type': 0x801044 if color else 0x1044,
+            },
+        )
         
         print(f"Generated {filepath}")
         return True
 
+    def _write_cache_file(self, printer_name, payload):
+        filepath = os.path.join(self.cache_dir, f'{printer_name}.json')
+        temp_path = self._temp_path(self.cache_dir, f'{printer_name}.json.tmp-')
+
+        with open(temp_path, 'w', encoding='utf-8') as cache_file:
+            json.dump(payload, cache_file, sort_keys=True)
+        os.replace(temp_path, filepath)
+
+    def _remove_stale_outputs(self, generated_printers):
+        expected_services = {f'AirPrint-{printer_name}.service' for printer_name in generated_printers}
+        expected_caches = {f'{printer_name}.json' for printer_name in generated_printers}
+
+        for filename in os.listdir(self.service_dir):
+            if filename.startswith('AirPrint-') and filename.endswith('.service') and filename not in expected_services:
+                os.remove(os.path.join(self.service_dir, filename))
+
+        for filename in os.listdir(self.cache_dir):
+            if filename.endswith('.json') and filename not in expected_caches:
+                os.remove(os.path.join(self.cache_dir, filename))
+
+    def _temp_path(self, directory, prefix):
+        fd, temp_path = tempfile.mkstemp(dir=directory, prefix=prefix)
+        os.close(fd)
+        return temp_path
+
     def _get_ppd_path(self, printer_name):
         candidates = [
             os.path.join(self.ppd_dir, f'{printer_name}.ppd'),
-            os.path.join(self.ppd_dir, f'{printer_name.replace(' ', '_')}.ppd'),
-            os.path.join(self.ppd_dir, f'{quote(printer_name, safe='')}.ppd'),
+            os.path.join(self.ppd_dir, f"{printer_name.replace(' ', '_')}.ppd"),
+            os.path.join(self.ppd_dir, f"{quote(printer_name, safe='')}.ppd"),
         ]
 
         for candidate in candidates:
@@ -202,6 +249,7 @@ class AirPrintGenerator:
 def main():
     # Ensure service directory exists
     os.makedirs(AVAHI_SERVICE_DIR, exist_ok=True)
+    os.makedirs(AIRPRINT_PROXY_CACHE_DIR, exist_ok=True)
     
     generator = AirPrintGenerator()
     success = generator.generate()

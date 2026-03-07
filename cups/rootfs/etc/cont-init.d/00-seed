@@ -22,6 +22,7 @@ fi
 # Create directory layout
 mkdir -p "${PPD_DIR}" \
          "${CONFIG_PATH}/cache" \
+         "${CONFIG_PATH}/cache/airprint-proxy" \
          "${CONFIG_PATH}/logs" \
          "${CONFIG_PATH}/state" \
          "${CONFIG_CONF}/certs"

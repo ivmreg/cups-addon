@@ -6,10 +6,6 @@ set -e
 AVAHI_SERVICES_DIR="/etc/avahi/services"
 CUPS_CONFIG_DIR="/data/cups/config"
 
-# Clean up any existing AirPrint service files
-bashio::log.info "Cleaning up AirPrint service files..."
-rm -f "${AVAHI_SERVICES_DIR}"/AirPrint-*.service
-
 # Wait for CUPS to be fully ready
 sleep 5
 
@@ -25,8 +21,6 @@ while read -r directory events filename; do
 		bashio::log.info "Printer config changed (${events}), regenerating AirPrint services..."
 		# Small delay to ensure CUPS has finished writing
 		sleep 2
-		# Remove old AirPrint service files
-		rm -f "${AVAHI_SERVICES_DIR}"/AirPrint-*.service
 		# Regenerate service files
 		/usr/local/bin/airprint-generate.py 2>&1 || bashio::log.warning "AirPrint generation failed"
 		bashio::log.info "AirPrint services regenerated"

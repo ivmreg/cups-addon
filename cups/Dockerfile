@@ -48,13 +48,13 @@ COPY rootfs /
 # Fix permissions for s6-overlay scripts
 RUN chmod -R 755 /etc/services.d && \
     chmod -R 755 /etc/cont-init.d && \
-    chmod +x /usr/local/bin/airprint-generate.py
+  chmod +x /usr/local/bin/airprint-generate.py /usr/local/bin/airprint-proxy.py
 
-# Expose IPP port
-EXPOSE 631
+# Expose IPP ports
+EXPOSE 631 8631
 
 # Healthcheck: verify scheduler is alive (full path to lpstat)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
-  CMD /usr/bin/lpstat -r || exit 1
+  CMD /usr/bin/lpstat -h 127.0.0.1:631 -r && python3 -c "import socket; s = socket.create_connection(('127.0.0.1', 8631), 3); s.close()" || exit 1
 
 # S6 will be PID 1 through Home Assistant
