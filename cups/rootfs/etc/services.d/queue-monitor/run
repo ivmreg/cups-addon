@@ -3,10 +3,13 @@
 
 set -e
 
+export CUPS_SERVER="localhost:631"
+export CUPS_ENCRYPTION="Never"
+
 bashio::log.info "Starting CUPS queue monitor..."
 
 while true; do
-    accepting_printers="$(/usr/bin/lpstat -a 2>/dev/null | awk 'NF { print $1 }' || true)"
+    accepting_printers="$(/usr/bin/lpstat -h "${CUPS_SERVER}" -a 2>/dev/null | awk 'NF { print $1 }' || true)"
 
     while read -r printer state reason; do
         [ -n "${printer}" ] || continue
@@ -18,14 +21,14 @@ while true; do
 
         if [ "${state}" = "disabled" ]; then
             bashio::log.warning "Re-enabling and accepting printer ${printer} (${reason})"
-            /usr/sbin/cupsenable "${printer}" || bashio::log.warning "Failed to re-enable ${printer}"
-            /usr/sbin/cupsaccept "${printer}" || bashio::log.warning "Failed to accept jobs for ${printer}"
+            /usr/sbin/cupsenable -h "${CUPS_SERVER}" "${printer}" || bashio::log.warning "Failed to re-enable ${printer}"
+            /usr/sbin/cupsaccept -h "${CUPS_SERVER}" "${printer}" || bashio::log.warning "Failed to accept jobs for ${printer}"
         elif [ "${accepting_state}" != "accepting" ]; then
             bashio::log.warning "Restoring job acceptance for printer ${printer}"
-            /usr/sbin/cupsaccept "${printer}" || bashio::log.warning "Failed to accept jobs for ${printer}"
+            /usr/sbin/cupsaccept -h "${CUPS_SERVER}" "${printer}" || bashio::log.warning "Failed to accept jobs for ${printer}"
         fi
     done <<EOF
-$(/usr/bin/lpstat -p 2>/dev/null | awk '
+$(/usr/bin/lpstat -h "${CUPS_SERVER}" -p 2>/dev/null | awk '
     $1 == "printer" {
         printer = $2
         state = ($3 == "disabled") ? "disabled" : "enabled"
