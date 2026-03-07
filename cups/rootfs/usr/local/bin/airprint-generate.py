@@ -6,14 +6,18 @@ Based on https://github.com/chuckcharlie/cups-avahi-airprint
 
 import cups
 import os
+import re
 import sys
+from urllib.parse import quote
 from xml.etree import ElementTree as ET
 
 AVAHI_SERVICE_DIR = '/etc/avahi/services'
+CUPS_PPD_DIR = '/etc/cups/ppd'
 
 class AirPrintGenerator:
     def __init__(self):
         self.service_dir = AVAHI_SERVICE_DIR
+        self.ppd_dir = CUPS_PPD_DIR
 
     def generate(self):
         try:
@@ -34,13 +38,12 @@ class AirPrintGenerator:
                 print(f"Skipping {printer_name} - not shared")
                 continue
 
-            self._generate_service_file(conn, printer_name, printer_attrs)
+            self._generate_service_file(printer_name, printer_attrs)
 
         return True
 
-    def _generate_service_file(self, conn, printer_name, printer_attrs):
+    def _generate_service_file(self, printer_name, printer_attrs):
         # Get printer details
-        state = printer_attrs.get('printer-state', 3)
         info = printer_attrs.get('printer-info', printer_name)
         location = printer_attrs.get('printer-location', '')
         make_model = printer_attrs.get('printer-make-and-model', 'Unknown Printer')
@@ -50,9 +53,9 @@ class AirPrintGenerator:
         duplex = False
         max_dpi = 600  # Default DPI
         
-        try:
-            ppd_path = conn.getPPD(printer_name)
-            if ppd_path:
+        ppd_path = self._get_ppd_path(printer_name)
+        if ppd_path:
+            try:
                 with open(ppd_path, 'r', errors='ignore') as f:
                     ppd_content = f.read()
                     # Check for color support
@@ -66,13 +69,10 @@ class AirPrintGenerator:
                         max_dpi = 1200
                     elif '600' in ppd_content:
                         max_dpi = 600
-                # Clean up temp PPD
-                try:
-                    os.unlink(ppd_path)
-                except:
-                    pass
-        except (cups.IPPError, IOError, OSError) as e:
-            print(f"Could not read PPD for {printer_name}: {e}", file=sys.stderr)
+            except (IOError, OSError) as e:
+                print(f"Could not read PPD for {printer_name}: {e}", file=sys.stderr)
+        else:
+            print(f"Could not find cached PPD for {printer_name}", file=sys.stderr)
 
         # Brother HL-1110 specific: mono laser, no duplex, 600/1200 DPI
         is_brother_hl1110 = 'HL-1110' in make_model or 'HL1110' in printer_name.upper()
@@ -136,6 +136,9 @@ class AirPrintGenerator:
         port = ET.SubElement(service, 'port')
         port.text = '631'
 
+        # Always advertise an idle queue via mDNS; actual delivery is handled by CUPS retry policy.
+        advertised_state = '3'
+
         # TXT records - order matters for some iOS versions
         txt_records = [
             ('txtvers', '1'),
@@ -148,7 +151,7 @@ class AirPrintGenerator:
             ('Color', 'T' if color else 'F'),
             ('Duplex', 'T' if duplex else 'F'),
             ('URF', urf_string),
-            ('printer-state', str(state)),
+            ('printer-state', advertised_state),
             ('printer-type', '0x801044' if color else '0x1044'),
             ('Transparent', 'T'),
             ('Binary', 'T'),
@@ -160,7 +163,6 @@ class AirPrintGenerator:
         device_uri = printer_attrs.get('device-uri', '')
         if device_uri:
             # Extract IP from socket://192.168.x.x:9100 or similar
-            import re
             ip_match = re.search(r'://([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)', device_uri)
             if ip_match:
                 printer_ip = ip_match.group(1)
@@ -182,6 +184,19 @@ class AirPrintGenerator:
         
         print(f"Generated {filepath}")
         return True
+
+    def _get_ppd_path(self, printer_name):
+        candidates = [
+            os.path.join(self.ppd_dir, f'{printer_name}.ppd'),
+            os.path.join(self.ppd_dir, f'{printer_name.replace(' ', '_')}.ppd'),
+            os.path.join(self.ppd_dir, f'{quote(printer_name, safe='')}.ppd'),
+        ]
+
+        for candidate in candidates:
+            if os.path.exists(candidate):
+                return candidate
+
+        return None
 
 
 def main():

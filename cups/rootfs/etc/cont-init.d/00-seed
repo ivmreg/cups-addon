@@ -8,6 +8,7 @@ CONFIG_PATH="/data/cups"
 CONFIG_CONF="${CONFIG_PATH}/config"
 PRINTERS_CONF="${CONFIG_CONF}/printers.conf"
 CUPSD_CONF="${CONFIG_CONF}/cupsd.conf"
+SNMP_CONF="${CONFIG_CONF}/snmp.conf"
 PPD_DIR="${CONFIG_CONF}/ppd"
 
 bashio::log.info "cont-init: ensuring persistent CUPS directories exist..."
@@ -54,6 +55,9 @@ DirtyCleanInterval 0
 SSLOptions None
 PreserveJobHistory Yes
 MaxJobs 500
+ErrorPolicy retry-current-job
+JobRetryInterval 30
+JobRetryLimit 10
 
 <Location />
   Order allow,deny
@@ -71,6 +75,32 @@ MaxJobs 500
 CUPSD
   chown root:lp "${CUPSD_CONF}" || true
   chmod 0640 "${CUPSD_CONF}" || true
+fi
+
+if ! grep -q '^ErrorPolicy ' "${CUPSD_CONF}"; then
+  bashio::log.info "Adding ErrorPolicy retry-current-job to ${CUPSD_CONF}..."
+  printf '\nErrorPolicy retry-current-job\n' >> "${CUPSD_CONF}"
+fi
+
+if ! grep -q '^JobRetryInterval ' "${CUPSD_CONF}"; then
+  bashio::log.info "Adding JobRetryInterval 30 to ${CUPSD_CONF}..."
+  printf 'JobRetryInterval 30\n' >> "${CUPSD_CONF}"
+fi
+
+if ! grep -q '^JobRetryLimit ' "${CUPSD_CONF}"; then
+  bashio::log.info "Adding JobRetryLimit 10 to ${CUPSD_CONF}..."
+  printf 'JobRetryLimit 10\n' >> "${CUPSD_CONF}"
+fi
+
+# Seed snmp.conf only if absent to disable backend SNMP polling
+if [ ! -f "${SNMP_CONF}" ]; then
+  bashio::log.info "Seeding default snmp.conf into ${SNMP_CONF}..."
+  cat > "${SNMP_CONF}" <<'SNMP'
+# Disable SNMP polling so CUPS serves printer state from cached queue data.
+# This avoids discovery-time backend queries when the physical printer is asleep.
+SNMP
+  chown root:lp "${SNMP_CONF}" || true
+  chmod 0640 "${SNMP_CONF}" || true
 fi
 
 # Ensure printers.conf exists

@@ -1,0 +1,44 @@
+#!/command/with-contenv bashio
+# Keep CUPS queues enabled so AirPrint discovery stays on cached scheduler state.
+
+set -e
+
+bashio::log.info "Starting CUPS queue monitor..."
+
+while true; do
+    accepting_printers="$(/usr/bin/lpstat -a 2>/dev/null | awk 'NF { print $1 }' || true)"
+
+    while read -r printer state reason; do
+        [ -n "${printer}" ] || continue
+
+        accepting_state="rejecting"
+        if printf '%s\n' "${accepting_printers}" | grep -Fxq -- "${printer}"; then
+            accepting_state="accepting"
+        fi
+
+        if [ "${state}" = "disabled" ]; then
+            bashio::log.warning "Re-enabling and accepting printer ${printer} (${reason})"
+            /usr/sbin/cupsenable "${printer}" || bashio::log.warning "Failed to re-enable ${printer}"
+            /usr/sbin/cupsaccept "${printer}" || bashio::log.warning "Failed to accept jobs for ${printer}"
+        elif [ "${accepting_state}" != "accepting" ]; then
+            bashio::log.warning "Restoring job acceptance for printer ${printer}"
+            /usr/sbin/cupsaccept "${printer}" || bashio::log.warning "Failed to accept jobs for ${printer}"
+        fi
+    done <<EOF
+$(/usr/bin/lpstat -p 2>/dev/null | awk '
+    $1 == "printer" {
+        printer = $2
+        state = ($3 == "disabled") ? "disabled" : "enabled"
+        reason = ""
+        if (NF > 3) {
+            for (i = 4; i <= NF; i++) {
+                reason = reason (reason ? " " : "") $i
+            }
+        }
+        print printer "\t" state "\t" reason
+    }
+')
+EOF
+
+    sleep 60
+done

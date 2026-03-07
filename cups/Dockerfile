@@ -31,7 +31,6 @@ RUN apk add --no-cache \
       cups-filters \
       ghostscript \
       libjpeg-turbo \
-      net-snmp \
       avahi \
       avahi-compat-libdns_sd \
       dbus \
