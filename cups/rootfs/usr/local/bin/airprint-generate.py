@@ -119,13 +119,13 @@ class AirPrintGenerator:
 
         # PDL (Page Description Languages) supported
         pdl = ','.join([
-            'application/octet-stream',
             'application/pdf',
-            'application/postscript',
             'image/urf',
+            'image/pwg-raster',
+            'application/postscript',
             'image/jpeg',
             'image/png',
-            'image/pwg-raster',
+            'application/octet-stream',
         ])
 
         # Create XML service file
@@ -169,6 +169,8 @@ class AirPrintGenerator:
             ('Transparent', 'T'),
             ('Binary', 'T'),
             ('PaperMax', 'legal-A4'),
+            ('PaperSize', 'T'),
+            ('PaperSizeSupported', 'A4,Letter,Legal'),
             ('kind', 'document,envelope,photo'),
         ]
 

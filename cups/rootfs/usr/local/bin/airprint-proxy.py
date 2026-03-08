@@ -43,6 +43,23 @@ IPP_TAG_CHARSET = 0x47
 IPP_TAG_LANGUAGE = 0x48
 IPP_TAG_MIME = 0x49
 
+PREFERRED_DOCUMENT_FORMATS = (
+    'application/pdf',
+    'image/urf',
+    'image/pwg-raster',
+    'application/postscript',
+    'image/jpeg',
+    'image/png',
+    'application/octet-stream',
+)
+
+DEFAULT_MEDIA = 'iso_a4_210x297mm'
+COMMON_MEDIA = [
+    'iso_a4_210x297mm',
+    'na_letter_8.5x11in',
+    'na_legal_8.5x14in',
+]
+
 
 class IPPRequest:
     def __init__(self, version, operation_id, request_id):
@@ -128,6 +145,22 @@ def load_cache(printer_name):
             return json.load(cache_file)
     except (OSError, json.JSONDecodeError):
         return None
+
+
+def choose_default_document_format(supported_formats):
+    for document_format in PREFERRED_DOCUMENT_FORMATS:
+        if document_format in supported_formats:
+            return document_format
+
+    if supported_formats:
+        return supported_formats[0]
+
+    return 'application/pdf'
+
+
+def urf_supported_values(cache):
+    urf = cache.get('urf', '')
+    return [value for value in urf.split(',') if value]
 
 
 class AirPrintProxyHandler(BaseHTTPRequestHandler):
@@ -232,6 +265,10 @@ class AirPrintProxyHandler(BaseHTTPRequestHandler):
         if not cache:
             return False
 
+        supported_formats = cache.get('pdl', [])
+        default_format = choose_default_document_format(supported_formats)
+        urf_values = urf_supported_values(cache)
+
         response = IPPResponseBuilder(ipp_request.version, IPP_STATUS_OK, ipp_request.request_id)
         response.start_group(IPP_TAG_OPERATION_ATTRIBUTES)
         response.add_string(IPP_TAG_CHARSET, 'attributes-charset', ['utf-8'])
@@ -248,7 +285,10 @@ class AirPrintProxyHandler(BaseHTTPRequestHandler):
         response.add_integer(IPP_TAG_ENUM, 'printer-state', [3])
         response.add_string(IPP_TAG_KEYWORD, 'printer-state-reasons', ['none'])
         response.add_boolean('printer-is-accepting-jobs', True)
+        response.add_integer(IPP_TAG_ENUM, 'printer-type', [cache.get('printer_type', 0x1044)])
         response.add_integer(IPP_TAG_INTEGER, 'queued-job-count', [0])
+        response.add_integer(IPP_TAG_INTEGER, 'copies-default', [1])
+        response.add_integer(IPP_TAG_INTEGER, 'copies-supported', [1])
         response.add_string(IPP_TAG_CHARSET, 'charset-configured', ['utf-8'])
         response.add_string(IPP_TAG_CHARSET, 'charset-supported', ['utf-8', 'us-ascii'])
         response.add_string(IPP_TAG_KEYWORD, 'ipp-versions-supported', ['1.0', '1.1', '2.0'])
@@ -256,11 +296,15 @@ class AirPrintProxyHandler(BaseHTTPRequestHandler):
         response.add_string(IPP_TAG_LANGUAGE, 'generated-natural-language-supported', ['en'])
         response.add_string(IPP_TAG_KEYWORD, 'compression-supported', ['none'])
         response.add_string(IPP_TAG_KEYWORD, 'pdl-override-supported', ['not-attempted'])
-        response.add_string(IPP_TAG_MIME, 'document-format-default', [cache['pdl'][0]])
-        response.add_string(IPP_TAG_MIME, 'document-format-supported', cache['pdl'])
+        response.add_string(IPP_TAG_MIME, 'document-format-default', [default_format])
+        response.add_string(IPP_TAG_MIME, 'document-format-supported', supported_formats or [default_format])
+        response.add_string(IPP_TAG_KEYWORD, 'media-default', [DEFAULT_MEDIA])
+        response.add_string(IPP_TAG_KEYWORD, 'media-supported', COMMON_MEDIA)
         response.add_string(IPP_TAG_URI, 'printer-more-info', [self._printer_more_info(cache['printer_name'])])
         response.add_boolean('color-supported', bool(cache['color']))
         response.add_boolean('multiple-document-jobs-supported', False)
+        if urf_values:
+            response.add_string(IPP_TAG_KEYWORD, 'urf-supported', urf_values)
 
         sides_supported = ['one-sided']
         if cache['duplex']:
